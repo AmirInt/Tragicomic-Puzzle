@@ -1,14 +1,5 @@
 import numpy
-
-
-def lift_constraints(variable):
-    queue = [variable]
-    while len(queue) > 0:
-        next_element = queue.pop(0)
-        next_element.domain = [0, 1]
-        for v in next_element.constrained_variables:
-            queue.append(v)
-        next_element.constrained_variables = []
+from GUI import Interface
 
 
 class Solver:
@@ -29,6 +20,7 @@ class Solver:
         self.row_string_one = ''
         self.column_string_zero = ''
         self.column_string_one = ''
+        self.gui = Interface(self.board_size)
 
     def set_board(self, board):
         self.board = board.board
@@ -61,6 +53,7 @@ class Solver:
                     variable.constrained_variables.append(constraint_target)
                     constraint_target.domain.pop(0)
                     self.add_neighbours(constraint_target, variable)
+                    self.add_to_gui(constraint_target)
                 else:
                     return False
         elif 1 == side_variable.value == subject:
@@ -70,22 +63,33 @@ class Solver:
                     value_index = constraint_target.domain.index(1)
                     constraint_target.domain.pop(value_index)
                     self.add_neighbours(constraint_target, variable)
+                    self.add_to_gui(constraint_target)
                 else:
                     return False
         return True
 
     def is_row_or_column_filled(self, variable):
-        column_filled = True
         row_filled = True
+        column_filled = True
         row_string = ''
         column_string = ''
         for i in range(self.board_size):
-            row_string = row_string + str(self.board[variable.row, i].value)
-            column_string = column_string + str(self.board[i, variable.column].value)
             if self.board[variable.row, i].value == -1:
-                row_filled = False
+                if len(self.board[variable.row, i].domain) > 1:
+                    row_filled = False
+                else:
+                    row_string = row_string + str(self.board[variable.row, i].domain[0])
+            else:
+                row_string = row_string + str(self.board[variable.row, i].value)
+
             if self.board[i, variable.column].value == -1:
-                column_filled = False
+                if len(self.board[i, variable.column].domain) > 1:
+                    column_filled = False
+                else:
+                    column_string = column_string + str(self.board[i, variable.column].domain[0])
+            else:
+                column_string = column_string + str(self.board[i, variable.column].value)
+
         if column_filled:
             self.filled_columns[variable.column] = column_string
         if row_filled:
@@ -148,6 +152,21 @@ class Solver:
                     self.column_string_zero = self.column_string_zero + str(self.board[i, variable.column].value)
                     self.column_string_one = self.column_string_one + str(self.board[i, variable.column].value)
                     self.column_zeros_counter += 1
+
+    def lift_constraints(self, variable):
+        queue = [variable]
+        while len(queue) > 0:
+            next_element = queue.pop(0)
+            next_element.domain = [0, 1]
+
+            if next_element in self.variable_stack:
+                next_element.value = -1
+                self.add_to_queue(self.variable_stack.pop(self.variable_stack.index(next_element)))
+
+            self.add_to_gui(next_element)
+            for v in next_element.constrained_variables:
+                queue.append(v)
+            next_element.constrained_variables = []
 
     def propagate_horizontal_constraints(self, variable, constraint_target):
         subject = variable.value if variable.value != -1 else variable.domain[0]
@@ -261,28 +280,32 @@ class Solver:
                     constraint_target.domain.pop(value_index)
                     variable.constrained_variables.append(constraint_target)
                     self.add_neighbours(constraint_target, variable)
+                    self.add_to_gui(constraint_target)
                 else:
                     return False
 
         if self.row_zeros_counter + self.row_ones_counter == self.board_size - 1:
-            for row in self.filled_rows:
-                if row == self.row_string_zero:
-                    if 0 in constraint_target.domain:
-                        if len(constraint_target.domain) > 1:
-                            constraint_target.domain.pop(0)
-                            variable.constrained_variables.append(constraint_target)
-                            self.add_neighbours(constraint_target, variable)
-                        else:
-                            return False
-                elif row == self.row_string_one:
-                    if 1 in constraint_target.domain:
-                        if len(constraint_target.domain) > 1:
-                            value_index = constraint_target.domain.index(eliminating_value)
-                            constraint_target.domain.pop(value_index)
-                            variable.constrained_variables.append(constraint_target)
-                            self.add_neighbours(constraint_target, variable)
-                        else:
-                            return False
+            for i in range(self.board_size):
+                if i != variable.row:
+                    if self.filled_rows[i] == self.row_string_zero:
+                        if 0 in constraint_target.domain:
+                            if len(constraint_target.domain) > 1:
+                                constraint_target.domain.pop(0)
+                                variable.constrained_variables.append(constraint_target)
+                                self.add_neighbours(constraint_target, variable)
+                                self.add_to_gui(constraint_target)
+                            else:
+                                return False
+                    elif self.filled_rows[i] == self.row_string_one:
+                        if 1 in constraint_target.domain:
+                            if len(constraint_target.domain) > 1:
+                                value_index = constraint_target.domain.index(eliminating_value)
+                                constraint_target.domain.pop(value_index)
+                                variable.constrained_variables.append(constraint_target)
+                                self.add_neighbours(constraint_target, variable)
+                                self.add_to_gui(constraint_target)
+                            else:
+                                return False
         return True
 
     def propagate_column_constraints(self, variable, constraint_target):
@@ -299,28 +322,32 @@ class Solver:
                     constraint_target.domain.pop(value_index)
                     variable.constrained_variables.append(constraint_target)
                     self.add_neighbours(constraint_target, variable)
+                    self.add_to_gui(constraint_target)
                 else:
                     return False
 
         if self.column_zeros_counter + self.column_ones_counter == self.board_size - 1:
-            for column in self.filled_columns:
-                if column == self.column_string_zero:
-                    if 0 in constraint_target.domain:
-                        if len(constraint_target.domain) > 1:
-                            constraint_target.domain.pop(0)
-                            variable.constrained_variables.append(constraint_target)
-                            self.add_neighbours(constraint_target, variable)
-                        else:
-                            return False
-                elif column == self.column_string_one:
-                    if 1 in constraint_target.domain:
-                        if len(constraint_target.domain) > 1:
-                            value_index = constraint_target.domain.index(eliminating_value)
-                            constraint_target.domain.pop(value_index)
-                            variable.constrained_variables.append(constraint_target)
-                            self.add_neighbours(constraint_target, variable)
-                        else:
-                            return False
+            for i in range(self.board_size):
+                if i != variable.column:
+                    if self.filled_columns[i] == self.column_string_zero:
+                        if 0 in constraint_target.domain:
+                            if len(constraint_target.domain) > 1:
+                                constraint_target.domain.pop(0)
+                                variable.constrained_variables.append(constraint_target)
+                                self.add_neighbours(constraint_target, variable)
+                                self.add_to_gui(constraint_target)
+                            else:
+                                return False
+                    elif self.filled_columns[i] == self.column_string_one:
+                        if 1 in constraint_target.domain:
+                            if len(constraint_target.domain) > 1:
+                                value_index = constraint_target.domain.index(eliminating_value)
+                                constraint_target.domain.pop(value_index)
+                                variable.constrained_variables.append(constraint_target)
+                                self.add_neighbours(constraint_target, variable)
+                                self.add_to_gui(constraint_target)
+                            else:
+                                return False
         return True
 
     def propagate_constraints(self, variable):
@@ -343,7 +370,37 @@ class Solver:
                     return False
         return True
 
+    def add_to_gui(self, changed_variable):
+        board_values = []
+        if changed_variable is not None:
+            board_values.append(changed_variable.row)
+            board_values.append(changed_variable.column)
+        else:
+            board_values.append(-1)
+            board_values.append(-1)
+        for i in self.board:
+            for j in i:
+                board_values.append(j.value)
+                if len(j.domain) > 1:
+                    board_values.append(j.domain[0])
+                    board_values.append(j.domain[1])
+                elif len(j.domain) > 0:
+                    board_values.append(j.domain[0])
+                    board_values.append(-1)
+                else:
+                    board_values.append(-1)
+                    board_values.append(-1)
+        self.gui.boards.append(board_values)
+
+    def add_to_queue(self, variable):
+        queue = [variable]
+        for c in self.variable_queue:
+            queue.append(c)
+        self.variable_queue = queue
+
     def solve(self):
+
+        self.add_to_gui(None)
 
         for i in range(self.board_size):
             for j in range(self.board_size):
@@ -359,10 +416,12 @@ class Solver:
             if len(next_variable.domain) > 0:
                 # Evaluates the next variable to the first value present in its domain
                 next_variable.value = next_variable.domain.pop(0)
+                self.add_to_gui(next_variable)
+                # self.print_board()
                 # If it is to change value, it first needs to lift the applied constraints:
                 if previous_variable is next_variable:
                     domain = next_variable.domain
-                    lift_constraints(next_variable)
+                    self.lift_constraints(next_variable)
                     next_variable.domain = domain
                 previous_variable = next_variable
                 if self.propagate_constraints(next_variable):
@@ -371,6 +430,7 @@ class Solver:
                     self.is_row_or_column_filled(next_variable)
                     next_variable = self.next_to_evaluate()
                     if next_variable is None:
+                        self.gui.root.mainloop()
                         return True
                 else:
                     # If it encounters a problem propagating the constraints:
@@ -379,21 +439,18 @@ class Solver:
                     next_variable = next_variable
             # If the next variable's domain runs out of values:
             else:
-                domain = [next_variable.value]
                 # Devalues the next value:
                 next_variable.value = -1
                 # Lifts all the constraints applied by the next variable:
-                lift_constraints(next_variable)
-                next_variable.domain = domain
+                self.lift_constraints(next_variable)
+                self.add_to_gui(next_variable)
                 # Returns the next variable back to queue:
-                queue = [next_variable]
-                for c in self.variable_queue:
-                    queue.append(c)
-                self.variable_queue = queue
+                self.add_to_queue(next_variable)
                 if len(self.variable_stack) > 0:
                     self.filled_rows[next_variable.row] = None
                     self.filled_columns[next_variable.column] = None
                     next_variable = self.previously_evaluated()
                     previous_variable = next_variable
                 else:
+                    self.gui.root.mainloop()
                     return False

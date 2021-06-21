@@ -1,23 +1,5 @@
 import numpy
-
-
-def lift_constraints(variable):
-    for v in variable.constrained_variables:
-        v.domain = [0, 1]
-    variable.domain = [0, 1]
-    variable.constrained_variables = []
-
-
-def apply_constraint(variable, constraint_target):
-    if constraint_target.value == -1:
-        if variable.value in constraint_target.domain:
-            value_index = constraint_target.domain.index(variable.value)
-            if len(constraint_target.domain) > 1:
-                constraint_target.domain.pop(value_index)
-                variable.constrained_variables.append(constraint_target)
-            else:
-                return False
-    return True
+from GUI import Interface
 
 
 class Solver:
@@ -29,6 +11,7 @@ class Solver:
         self.variable_stack = []
         self.filled_rows = numpy.empty(self.board_size, dtype=object)
         self.filled_columns = numpy.empty(self.board_size, dtype=object)
+        self.gui = Interface(self.board_size)
 
     def set_board(self, board):
         self.board = board.board
@@ -45,6 +28,47 @@ class Solver:
     def previously_evaluated(self):
         return self.variable_stack.pop(len(self.variable_stack) - 1)
 
+    def add_to_gui(self, changed_variable):
+        board_values = []
+        if changed_variable is not None:
+            board_values.append(changed_variable.row)
+            board_values.append(changed_variable.column)
+        else:
+            board_values.append(-1)
+            board_values.append(-1)
+        for i in self.board:
+            for j in i:
+                board_values.append(j.value)
+                if len(j.domain) > 1:
+                    board_values.append(j.domain[0])
+                    board_values.append(j.domain[1])
+                elif len(j.domain) > 0:
+                    board_values.append(j.domain[0])
+                    board_values.append(-1)
+                else:
+                    board_values.append(-1)
+                    board_values.append(-1)
+        self.gui.boards.append(board_values)
+
+    def apply_constraint(self, variable, constraint_target):
+        if constraint_target.value == -1:
+            if variable.value in constraint_target.domain:
+                value_index = constraint_target.domain.index(variable.value)
+                if len(constraint_target.domain) > 1:
+                    constraint_target.domain.pop(value_index)
+                    variable.constrained_variables.append(constraint_target)
+                    self.add_to_gui(constraint_target)
+                else:
+                    return False
+        return True
+
+    def lift_constraints(self, variable):
+        for v in variable.constrained_variables:
+            v.domain = [0, 1]
+        variable.domain = [0, 1]
+        variable.constrained_variables = []
+        self.add_to_gui(variable)
+
     def propagate_horizontal_constraints(self, variable):
 
         # Checking if the variable to the left of this variable has the same value as this variable
@@ -52,11 +76,11 @@ class Solver:
                 self.board[variable.row, variable.column - 1].value == variable.value:
             if variable.column > 1:
                 constraint_target = self.board[variable.row, variable.column - 2]
-                if not apply_constraint(variable, constraint_target):
+                if not self.apply_constraint(variable, constraint_target):
                     return False
             if variable.column < self.board_size - 1:
                 constraint_target = self.board[variable.row, variable.column + 1]
-                if not apply_constraint(variable, constraint_target):
+                if not self.apply_constraint(variable, constraint_target):
                     return False
 
         # Checking if the variable to the right of this variable has the same value as this variable
@@ -64,23 +88,23 @@ class Solver:
                 self.board[variable.row, variable.column + 1].value == variable.value:
             if variable.column > 0:
                 constraint_target = self.board[variable.row, variable.column - 1]
-                if not apply_constraint(variable, constraint_target):
+                if not self.apply_constraint(variable, constraint_target):
                     return False
             if variable.column < self.board_size - 2:
                 constraint_target = self.board[variable.row, variable.column + 2]
-                if not apply_constraint(variable, constraint_target):
+                if not self.apply_constraint(variable, constraint_target):
                     return False
 
         # Checking if this variable encloses a variable in between itself and another identically evaluated variable
         if variable.column > 1 and \
                 self.board[variable.row, variable.column - 2].value == variable.value:
             constraint_target = self.board[variable.row, variable.column - 1]
-            if not apply_constraint(variable, constraint_target):
+            if not self.apply_constraint(variable, constraint_target):
                 return False
         if variable.column < self.board_size - 2 and \
                 self.board[variable.row, variable.column + 2].value == variable.value:
             constraint_target = self.board[variable.row, variable.column + 1]
-            if not apply_constraint(variable, constraint_target):
+            if not self.apply_constraint(variable, constraint_target):
                 return False
         return True
 
@@ -91,11 +115,11 @@ class Solver:
                 self.board[variable.row - 1, variable.column].value == variable.value:
             if variable.row > 1:
                 constraint_target = self.board[variable.row - 2, variable.column]
-                if not apply_constraint(variable, constraint_target):
+                if not self.apply_constraint(variable, constraint_target):
                     return False
             if variable.row < self.board_size - 1:
                 constraint_target = self.board[variable.row + 1, variable.column]
-                if not apply_constraint(variable, constraint_target):
+                if not self.apply_constraint(variable, constraint_target):
                     return False
 
         # Checking if the variable below this variable has the same value as this variable
@@ -103,23 +127,23 @@ class Solver:
                 self.board[variable.row + 1, variable.column].value == variable.value:
             if variable.row > 0:
                 constraint_target = self.board[variable.row - 1, variable.column]
-                if not apply_constraint(variable, constraint_target):
+                if not self.apply_constraint(variable, constraint_target):
                     return False
             if variable.row < self.board_size - 2:
                 constraint_target = self.board[variable.row + 2, variable.column]
-                if not apply_constraint(variable, constraint_target):
+                if not self.apply_constraint(variable, constraint_target):
                     return False
 
         # Checking if this variable encloses a variable in between itself and another identically evaluated variable
         if variable.row > 1 and \
                 self.board[variable.row - 2, variable.column].value == variable.value:
             constraint_target = self.board[variable.row - 1, variable.column]
-            if not apply_constraint(variable, constraint_target):
+            if not self.apply_constraint(variable, constraint_target):
                 return False
         if variable.row < self.board_size - 2 and \
                 self.board[variable.row + 2, variable.column].value == variable.value:
             constraint_target = self.board[variable.row + 1, variable.column]
-            if not apply_constraint(variable, constraint_target):
+            if not self.apply_constraint(variable, constraint_target):
                 return False
         return True
 
@@ -252,6 +276,8 @@ class Solver:
 
     def solve(self):
 
+        self.add_to_gui(None)
+
         for i in range(self.board_size):
             for j in range(self.board_size):
                 if self.board[i, j].value != -1:
@@ -267,13 +293,14 @@ class Solver:
                 next_variable.value = next_variable.domain.pop(0)
                 domain = next_variable.domain
                 # If it is to change value, it first needs to lift the applied constraints:
-                lift_constraints(next_variable)
+                self.lift_constraints(next_variable)
                 next_variable.domain = domain
                 if self.propagate_constraints(next_variable):
                     # If constraints are propagated without any issues:
                     self.variable_stack.append(next_variable)
                     next_variable = self.next_to_evaluate()
                     if next_variable is None:
+                        self.gui.root.mainloop()
                         return True
                 else:
                     # If it encounters a problem propagating the constraints:
@@ -285,7 +312,7 @@ class Solver:
                 # Devalues the next value:
                 next_variable.value = -1
                 # Lifts all the constraints applied by the next variable:
-                lift_constraints(next_variable)
+                self.lift_constraints(next_variable)
                 # Returns the next variable back to queue:
                 queue = [next_variable]
                 for c in self.variable_queue:
@@ -296,4 +323,5 @@ class Solver:
                     self.filled_columns[next_variable.column] = None
                     next_variable = self.previously_evaluated()
                 else:
+                    self.gui.root.mainloop()
                     return False

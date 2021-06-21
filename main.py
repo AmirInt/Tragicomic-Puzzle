@@ -1,6 +1,6 @@
 from board import Board
-# from fcsolver import Solver
-from macsolver import Solver
+from fcsolver import Solver
+# from macsolver import Solver
 
 if __name__ == '__main__':
     n = input().split()
