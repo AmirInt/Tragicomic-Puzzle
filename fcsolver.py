@@ -3,8 +3,16 @@ from GUI import Interface
 
 
 class Solver:
+    """
+    Class Solver is the agent that attempts to do this puzzle, using the backtracking
+    algorithm. This class uses maintaining arc-consistency method to propagate constraints.
+    """
 
     def __init__(self, n):
+        """
+        Initialises this class
+        :param n: The size of the board
+        """
         self.board = None
         self.board_size = int(n)
         self.variable_queue = []
@@ -14,9 +22,16 @@ class Solver:
         self.gui = Interface(self.board_size)
 
     def set_board(self, board):
+        """
+        Sets up the playing board
+        :param board: The puzzle board
+        """
         self.board = board.board
 
     def next_to_evaluate(self):
+        """
+        :return: Returns the next variable on the queue to be evaluated
+        """
         if len(self.variable_queue) > 0:
             most_restricted = 0
             for variable in range(len(self.variable_queue)):
@@ -26,9 +41,17 @@ class Solver:
         return None
 
     def previously_evaluated(self):
+        """
+        :return: The previously (recently) evaluated variable, in case of a backtrack.
+        """
         return self.variable_stack.pop(len(self.variable_stack) - 1)
 
     def add_to_gui(self, changed_variable):
+        """
+        Adds a trace of the solving procedure to the graphical interface object
+        to hold track of what's been done.
+        :param changed_variable: The variable that's undergone a change at the current level
+        """
         board_values = []
         if changed_variable is not None:
             board_values.append(changed_variable.row)
@@ -51,6 +74,14 @@ class Solver:
         self.gui.boards.append(board_values)
 
     def apply_constraint(self, variable, constraint_target):
+        """
+        Applies the constraints made by evaluating this variable to
+        a target (typically a neighbour)
+        :param variable: The recently evaluated variable
+        :param constraint_target: The constraint target to which constraints are to be applied
+        :return: True if this constraint is applicable; that is, after applying
+        constraints the domain of the target is not empty, false otherwise.
+        """
         if constraint_target.value == -1:
             if variable.value in constraint_target.domain:
                 value_index = constraint_target.domain.index(variable.value)
@@ -63,6 +94,10 @@ class Solver:
         return True
 
     def lift_constraints(self, variable):
+        """
+        Lift the wrongly applied constraints in case of a backtrack.
+        :param variable: The last evaluated variable, from which backtracking occurs
+        """
         for v in variable.constrained_variables:
             v.domain = [0, 1]
         variable.domain = [0, 1]
@@ -70,7 +105,11 @@ class Solver:
         self.add_to_gui(variable)
 
     def propagate_horizontal_constraints(self, variable):
-
+        """
+        Applies constraints on a row
+        :param variable: The recently evaluated variable
+        :return: True if this constraint is applicable, false otherwise
+        """
         # Checking if the variable to the left of this variable has the same value as this variable
         if variable.column > 0 and \
                 self.board[variable.row, variable.column - 1].value == variable.value:
@@ -109,7 +148,11 @@ class Solver:
         return True
 
     def propagate_vertical_constraints(self, variable):
-
+        """
+        Applies constraints in a column
+        :param variable: The recently evaluated variable
+        :return: True if this constraint is applicable, false otherwise
+        """
         # Checking if the variable above this variable has the same value as this variable
         if variable.row > 0 and \
                 self.board[variable.row - 1, variable.column].value == variable.value:
@@ -148,6 +191,12 @@ class Solver:
         return True
 
     def is_row_filled_properly(self, variable):
+        """
+        Checks if the variable's row is filled properly, and propagating
+        corresponding constraints, as well.
+        :param variable: The recently evaluated variable.
+        :return: True if this row is properly arranged, false otherwise
+        """
         zeros_counter = 0
         ones_counter = 0
         non_evaluated_variable = -1
@@ -208,6 +257,12 @@ class Solver:
         return True
 
     def is_column_filled_properly(self, variable):
+        """
+        Checks if the variable's column is filled properly, and propagating
+        corresponding constraints, as well.
+        :param variable: The recently evaluated variable.
+        :return: True if this column is properly arranged, false otherwise
+        """
         zeros_counter = 0
         ones_counter = 0
         non_evaluated_variable = -1
@@ -267,6 +322,11 @@ class Solver:
         return True
 
     def propagate_constraints(self, variable):
+        """
+        Propagates constraints after evaluating this variable.
+        :param variable: The recently evaluated variable
+        :return: True if no issue is encountered, false if backtracking is required
+        """
         if self.propagate_horizontal_constraints(variable) and \
                 self.propagate_vertical_constraints(variable) and \
                 self.is_row_filled_properly(variable) and \
@@ -275,6 +335,10 @@ class Solver:
         return False
 
     def solve(self):
+        """
+        Performs the procedure of solving the puzzle holistically.
+        :return: True if the puzzle is solved, false if it's an impossible puzzle
+        """
 
         self.add_to_gui(None)
 

@@ -4,7 +4,10 @@ from tkinter import Canvas, Button, Tk
 
 
 class Interface:
-
+    """
+    This class attempts to present a graphical sketch of what is going on
+    during the process of doing the puzzle.
+    """
     def __init__(self, n):
         # Variables
         self.counter = -1

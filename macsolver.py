@@ -3,8 +3,16 @@ from GUI import Interface
 
 
 class Solver:
+    """
+    Class Solver is the agent that attempts to do this puzzle, using the backtracking
+    algorithm. This class uses forward checking method to propagate constraints.
+    """
 
     def __init__(self, n):
+        """
+        Initialises this class
+        :param n: The size of the board
+        """
         self.board = None
         self.board_size = int(n)
         self.variable_queue = []
@@ -23,9 +31,16 @@ class Solver:
         self.gui = Interface(self.board_size)
 
     def set_board(self, board):
+        """
+        Sets up the playing board
+        :param board: The puzzle board
+        """
         self.board = board.board
 
     def next_to_evaluate(self):
+        """
+        :return: Returns the next variable on the queue to be evaluated
+        """
         if len(self.variable_queue) > 0:
             most_restricted = 0
             for variable in range(len(self.variable_queue)):
@@ -35,9 +50,13 @@ class Solver:
         return None
 
     def previously_evaluated(self):
+        """
+        :return: The previously (recently) evaluated variable, in case of a backtrack.
+        """
         return self.variable_stack.pop(len(self.variable_stack) - 1)
 
     def add_neighbours(self, constraint_target, constraining_variable):
+
         for i in range(self.board_size):
             if self.board[i, constraint_target.column].value == -1:
                 if i != constraint_target.row and constraining_variable is not self.board[i, constraint_target.column]:
@@ -47,6 +66,17 @@ class Solver:
                     self.arcs_queue.append([self.board[constraint_target.row, i], constraint_target])
 
     def check_arc_consistency_for(self, variable, subject, side_variable, constraint_target):
+        """
+        Sets up the arc-consistency for ternary relation of the recently
+        evaluated variable, the target and a side variable that's selected
+        on purpose.
+        :param variable: The recently evaluated variable
+        :param subject: Either the value of "variable" of the sole alternative value
+        in its domain
+        :param side_variable: A third variable playing a role in the arc consistency
+        :param constraint_target: The target variable
+        :return: True if it comes across no issue, false if a backtrack is needed
+        """
         if 0 == side_variable.value == subject:
             if 0 in constraint_target.domain:
                 if len(constraint_target.domain) > 1:
@@ -154,6 +184,10 @@ class Solver:
                     self.column_zeros_counter += 1
 
     def lift_constraints(self, variable):
+        """
+        Lift the wrongly applied constraints in case of a backtrack.
+        :param variable: The last evaluated variable, from which backtracking occurs
+        """
         queue = [variable]
         while len(queue) > 0:
             next_element = queue.pop(0)
@@ -169,6 +203,12 @@ class Solver:
             next_element.constrained_variables = []
 
     def propagate_horizontal_constraints(self, variable, constraint_target):
+        """
+        Applies constraints on a row
+        :param variable: The recently evaluated variable
+        :param constraint_target: The target of the constraints
+        :return: True if this constraint is applicable, false otherwise
+        """
         subject = variable.value if variable.value != -1 else variable.domain[0]
 
         # Checking for three consecutive variables:
@@ -218,6 +258,12 @@ class Solver:
         return self.propagate_row_constraints(variable, constraint_target)
 
     def propagate_vertical_constraints(self, variable, constraint_target):
+        """
+        Applies constraints in a column
+        :param variable: The recently evaluated variable
+        :param constraint_target: The target of the constraint
+        :return: True if this constraint is applicable, false otherwise
+        """
         subject = variable.value if variable.value != -1 else variable.domain[0]
 
         # Checking for three consecutive variables:
@@ -267,6 +313,13 @@ class Solver:
         return self.propagate_column_constraints(variable, constraint_target)
 
     def propagate_row_constraints(self, variable, constraint_target):
+        """
+        Checks if the variable's row is filled properly, and propagating
+        corresponding constraints, as well.
+        :param variable: The recently evaluated variable.
+        :param constraint_target: The target of the constraint
+        :return: True if this row is properly arranged, false otherwise
+        """
         eliminating_value = -1
         if self.row_zeros_counter == self.board_size / 2:
             eliminating_value = 0
@@ -309,6 +362,13 @@ class Solver:
         return True
 
     def propagate_column_constraints(self, variable, constraint_target):
+        """
+        Checks if the variable's column is filled properly, and propagating
+        corresponding constraints, as well.
+        :param variable: The recently evaluated variable.
+        :param constraint_target: The target of the constraint
+        :return: True if this column is properly arranged, false otherwise
+        """
         eliminating_value = -1
         if self.column_zeros_counter == self.board_size / 2:
             eliminating_value = 0
@@ -351,6 +411,11 @@ class Solver:
         return True
 
     def propagate_constraints(self, variable):
+        """
+        Propagates constraints after evaluating this variable.
+        :param variable: The recently evaluated variable
+        :return: True if no issue is encountered, false if backtracking is required
+        """
         self.add_neighbours(variable, None)
         while len(self.arcs_queue) > 0:
             arc = self.arcs_queue.pop(0)
@@ -371,6 +436,11 @@ class Solver:
         return True
 
     def add_to_gui(self, changed_variable):
+        """
+        Adds a trace of the solving procedure to the graphical interface object
+        to hold track of what's been done.
+        :param changed_variable: The variable that's undergone a change at the current level
+        """
         board_values = []
         if changed_variable is not None:
             board_values.append(changed_variable.row)
@@ -393,12 +463,22 @@ class Solver:
         self.gui.boards.append(board_values)
 
     def add_to_queue(self, variable):
+        """
+        An auxiliary method for returning the wrong-valued variable back
+        into the variables queue of the class
+        :param variable: The variable from which the algorithm backtracks to
+        a previously evaluated variable
+        """
         queue = [variable]
         for c in self.variable_queue:
             queue.append(c)
         self.variable_queue = queue
 
     def solve(self):
+        """
+        Performs the procedure of solving the puzzle holistically.
+        :return: True if the puzzle is solved, false if it's an impossible puzzle
+        """
 
         self.add_to_gui(None)
 
